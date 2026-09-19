@@ -1,0 +1,6 @@
+{
+  "name": "RJ TECH - Institute Management System",
+  "description": "Comprehensive Computer Training & Digital Education Center management platform and student portal for RJ TECH.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
