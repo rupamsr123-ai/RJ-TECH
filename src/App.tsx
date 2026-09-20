@@ -145,13 +145,19 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-slate-800 antialiased font-sans">
       {/* Primary Route Selector */}
-      {activeView === 'public' || activeView === 'public_home' ? (
-        <PublicWebsite />
-      ) : activeView === 'login' ? (
-        <PublicLogin />
-      ) : activeView === 'student' ? (
+      {activeView.includes('login') || activeView === 'login' ? (
+        <PublicLogin
+          initialRole={
+            activeView === 'public_login_admin'
+              ? 'ADMIN'
+              : activeView === 'public_login_staff'
+              ? 'STAFF'
+              : 'STUDENT'
+          }
+        />
+      ) : activeView === 'student' || activeView === 'student_portal' || activeView === 'student_dashboard' ? (
         <StudentPortal />
-      ) : activeView === 'admin' ? (
+      ) : activeView === 'admin' || activeView === 'admin_dashboard' || activeView.startsWith('admin_') ? (
         <AdminLayout activeSubView={activeSubView} setActiveSubView={setActiveSubView}>
           {renderAdminContent()}
         </AdminLayout>

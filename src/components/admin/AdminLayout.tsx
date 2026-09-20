@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Button, Badge, Modal } from '../common/UIComponents';
+import { AdminProfileModal } from './AdminProfileModal';
 
 export const AdminLayout: React.FC<{
   activeSubView: string;
@@ -58,6 +59,7 @@ export const AdminLayout: React.FC<{
   } = useApp();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [adminProfileOpen, setAdminProfileOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -387,15 +389,30 @@ export const AdminLayout: React.FC<{
             <ExternalLink className="w-3.5 h-3.5" />
           </button>
 
-          {/* User Profile Avatar / Logout */}
+          {/* Admin Profile Section */}
           <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-            <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-300">
-              <img
-                src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
-                alt={currentUser?.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
+            <button
+              onClick={() => setAdminProfileOpen(true)}
+              className="flex items-center gap-2 px-2 py-1 rounded-xl hover:bg-slate-100 transition-all text-left group cursor-pointer"
+              title="Admin Profile: Upload photo & manage profile"
+            >
+              <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-blue-500/40 ring-2 ring-blue-500/10 group-hover:ring-blue-500/30 group-hover:scale-105 transition-all">
+                <img
+                  src={currentUser?.avatar || settings.adminPhotoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
+                  alt={currentUser?.name || 'Director (Admin)'}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="hidden md:block">
+                <span className="text-xs font-bold text-slate-800 group-hover:text-blue-600 block leading-tight">
+                  {currentUser?.name || 'Director (Admin)'}
+                </span>
+                <span className="text-[10px] font-semibold text-blue-600 flex items-center gap-0.5">
+                  <Shield className="w-2.5 h-2.5" /> Admin Profile
+                </span>
+              </div>
+            </button>
             <button
               onClick={logout}
               className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -677,6 +694,12 @@ export const AdminLayout: React.FC<{
           </div>
         </Modal>
       )}
+
+      {/* Admin Profile & Avatar Upload Modal */}
+      <AdminProfileModal
+        isOpen={adminProfileOpen}
+        onClose={() => setAdminProfileOpen(false)}
+      />
     </div>
   );
 };

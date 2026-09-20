@@ -26,6 +26,12 @@ import {
   Mail,
   MapPin,
   FileCheck,
+  KeyRound,
+  Lock,
+  EyeOff,
+  ShieldCheck,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Student } from '../../types';
@@ -66,6 +72,14 @@ export const StudentManagement: React.FC<{
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [feesFilter, setFeesFilter] = useState('ALL');
 
+  // Student Password & Credential Modal State
+  const [passwordStudent, setPasswordStudent] = useState<Student | null>(null);
+  const [credentialPassword, setCredentialPassword] = useState('');
+  const [credentialUsername, setCredentialUsername] = useState('');
+  const [credentialStudentId, setCredentialStudentId] = useState('');
+  const [showPasswordInModal, setShowPasswordInModal] = useState(false);
+  const [showPasswordInForm, setShowPasswordInForm] = useState(false);
+
   // Edit Student Modal state
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
 
@@ -77,6 +91,9 @@ export const StudentManagement: React.FC<{
 
   // New Student Form State
   const [formData, setFormData] = useState({
+    studentId: '',
+    username: '',
+    password: 'Password@123',
     name: '',
     dob: '2005-06-15',
     gender: 'Male' as 'Male' | 'Female' | 'Other',
@@ -130,7 +147,14 @@ export const StudentManagement: React.FC<{
       return;
     }
 
+    const finalStudentId = formData.studentId.trim() || undefined;
+    const finalUsername = formData.username.trim() || formData.name.toLowerCase().replace(/\s+/g, '.');
+    const finalPassword = formData.password.trim() || '123456';
+
     const newStudent = addStudent({
+      studentId: finalStudentId,
+      username: finalUsername,
+      password: finalPassword,
       name: formData.name,
       dob: formData.dob,
       gender: formData.gender,
@@ -162,7 +186,6 @@ export const StudentManagement: React.FC<{
       dueFee,
       status: 'Active',
       feesStatus: dueFee <= 0 ? 'Paid' : 'Partial',
-      username: formData.name.toLowerCase().replace(/\s+/g, '.'),
       referredBy: formData.referredBy,
     });
 
@@ -373,7 +396,16 @@ export const StudentManagement: React.FC<{
                     required
                     placeholder="e.g. Joydeep Pal"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
+                        name: val,
+                        username: !prev.username || prev.username === prev.name.toLowerCase().replace(/\s+/g, '.')
+                          ? val.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '')
+                          : prev.username,
+                      }));
+                    }}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
@@ -500,6 +532,120 @@ export const StudentManagement: React.FC<{
               </div>
             </div>
 
+            {/* Section 3: Student Login & Portal Credentials */}
+            <div className="bg-amber-50/40 p-4 rounded-2xl border border-amber-200/80">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-amber-200/60">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-5 h-5 text-amber-600" />
+                  <h3 className="text-base font-bold text-slate-900">
+                    3. Student Portal Access Credentials (Student ID & Password)
+                  </h3>
+                </div>
+                <span className="px-2.5 py-1 bg-amber-500 text-white font-bold rounded-lg text-[10px] uppercase tracking-wide">
+                  Student Login Credentials • ছাত্রের আইডি ও পাসওয়ার্ড
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-white border border-amber-200 rounded-xl mb-4 flex items-start gap-2.5 text-xs text-amber-900 shadow-xs">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block text-slate-900 mb-0.5">Student Login Account Creation (ছাত্রের লগইন অ্যাকাউন্ট)</span>
+                  <span className="text-slate-600">
+                    Assign a custom or automated Student ID, Portal Username, and secure Password. The student will use these credentials to log in to the RJ TECH Student Portal from any mobile or computer to view Marksheets, Certificates, Fee Receipts, and live exams.
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-700">Student ID / Roll Prefix</label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          studentId: `${settings.studentIdPrefix || 'RJT-'}${1000 + students.length + 1}`,
+                        })
+                      }
+                      className="text-[11px] text-blue-600 hover:underline cursor-pointer flex items-center gap-1 font-semibold"
+                    >
+                      <RefreshCw className="w-2.5 h-2.5" /> Auto ID
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={`e.g. RJT-${1000 + students.length + 1}`}
+                    value={formData.studentId}
+                    onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono uppercase font-bold text-slate-800"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Optional: leave empty to auto-generate from institute prefix
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Portal Username / Login ID *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. joydeep.pal"
+                    value={formData.username}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        username: e.target.value.toLowerCase().replace(/\s+/g, '.'),
+                      })
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-medium"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Used by the student for website / app login
+                  </span>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-700">Login Password *</label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          password: 'RJT' + Math.floor(100000 + Math.random() * 900000),
+                        })
+                      }
+                      className="text-[11px] text-blue-600 hover:underline cursor-pointer flex items-center gap-1 font-semibold"
+                    >
+                      <Sparkles className="w-2.5 h-2.5" /> Random Pass
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPasswordInForm ? 'text' : 'password'}
+                      required
+                      placeholder="Enter password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full pl-3 pr-9 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-bold text-slate-800"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordInForm(!showPasswordInForm)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      title={showPasswordInForm ? 'Hide password' : 'Show password'}
+                    >
+                      {showPasswordInForm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Can be viewed or changed anytime by administrator
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
               <Button
                 variant="outline"
@@ -519,6 +665,59 @@ export const StudentManagement: React.FC<{
       {/* ======================= STUDENT LIST ======================= */}
       {viewMode === 'list' && (
         <div className="space-y-4">
+          {/* Action and Stats Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Registered Students ({filteredStudents.length})</h3>
+                <p className="text-[11px] text-slate-500">Manage admissions, credentials, ID cards, and tuition fees</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {students.some(
+                (s) =>
+                  s.id === 's-1001' ||
+                  s.id === 's-1002' ||
+                  s.name.toLowerCase().includes('demo') ||
+                  s.name.includes('Priya Roy') ||
+                  s.name.includes('Rahul Sen')
+              ) && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={Trash2}
+                  onClick={() => {
+                    if (confirm('Delete all demo student records from database?')) {
+                      const demoList = students.filter(
+                        (s) =>
+                          s.id === 's-1001' ||
+                          s.id === 's-1002' ||
+                          s.name.toLowerCase().includes('demo') ||
+                          s.name.includes('Priya Roy') ||
+                          s.name.includes('Rahul Sen')
+                      );
+                      demoList.forEach((d) => deleteStudent(d.id));
+                    }
+                  }}
+                >
+                  Clear Demo Students
+                </Button>
+              )}
+              <Button
+                variant="primary"
+                size="sm"
+                icon={UserPlus}
+                onClick={() => setViewMode('add')}
+              >
+                New Admission & Login
+              </Button>
+            </div>
+          </div>
+
           {/* Filter Bar */}
           <Card className="p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
@@ -693,6 +892,19 @@ export const StudentManagement: React.FC<{
                               <QrCode className="w-4 h-4" />
                             </button>
                             <button
+                              onClick={() => {
+                                setPasswordStudent(st);
+                                setCredentialStudentId(st.studentId);
+                                setCredentialUsername(st.username || st.studentId);
+                                setCredentialPassword(st.password || '123456');
+                                setShowPasswordInModal(false);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                              title="Manage Student ID & Password (Portal Credentials)"
+                            >
+                              <KeyRound className="w-4 h-4 text-amber-600" />
+                            </button>
+                            <button
                               onClick={() => setEditingStudent(st)}
                               className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                               title="Edit Student"
@@ -847,6 +1059,32 @@ export const StudentManagement: React.FC<{
                     </span>
                     <span className="text-[10px] text-slate-400 block">Room: Lab 1</span>
                   </div>
+                </div>
+
+                <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-200/80 flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-900 text-xs">
+                      <KeyRound className="w-4 h-4 text-amber-600" />
+                      <span>Student Portal Access Credentials</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 font-mono">
+                      Student ID: <strong>{profileStudent.studentId}</strong> • Username: <strong>{profileStudent.username || profileStudent.studentId}</strong> • Password: <strong>{profileStudent.password || '123456'}</strong>
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    icon={KeyRound}
+                    onClick={() => {
+                      setPasswordStudent(profileStudent);
+                      setCredentialStudentId(profileStudent.studentId);
+                      setCredentialUsername(profileStudent.username || profileStudent.studentId);
+                      setCredentialPassword(profileStudent.password || '123456');
+                      setShowPasswordInModal(false);
+                    }}
+                  >
+                    Change Password
+                  </Button>
                 </div>
 
                 <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-200 space-y-1">
@@ -1126,6 +1364,222 @@ export const StudentManagement: React.FC<{
               </Button>
               <Button type="submit" variant="success" size="md">
                 Generate Official Receipt & Save
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ======================= MANAGE PASSWORD & CREDENTIALS MODAL ======================= */}
+      {passwordStudent && (
+        <Modal
+          isOpen={Boolean(passwordStudent)}
+          onClose={() => setPasswordStudent(null)}
+          title={`Portal Credentials - ${passwordStudent.name}`}
+          maxWidth="md"
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              updateStudent(passwordStudent.id, {
+                studentId: credentialStudentId.trim() || passwordStudent.studentId,
+                username: credentialUsername.trim() || passwordStudent.username,
+                password: credentialPassword.trim() || '123456',
+              });
+              setPasswordStudent(null);
+            }}
+            className="space-y-5 text-xs"
+          >
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50/60 border border-blue-200/80 rounded-2xl space-y-2">
+              <div className="flex items-center gap-3">
+                <img
+                  src={passwordStudent.photo}
+                  alt={passwordStudent.name}
+                  className="w-12 h-12 rounded-xl object-cover border border-white shadow-xs"
+                  referrerPolicy="no-referrer"
+                />
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">{passwordStudent.name}</h4>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    ID: {passwordStudent.studentId} • Reg: {passwordStudent.registrationNo}
+                  </p>
+                </div>
+              </div>
+              <p className="text-[11px] text-blue-700 pt-1 border-t border-blue-100">
+                You can change the student ID, login username, or set a new password here. The student uses these credentials to log in to the Student Portal.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Student ID (Roll / Prefix)</label>
+                <input
+                  type="text"
+                  required
+                  value={credentialStudentId}
+                  onChange={(e) => setCredentialStudentId(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-bold uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Login Username</label>
+                <input
+                  type="text"
+                  required
+                  value={credentialUsername}
+                  onChange={(e) => setCredentialUsername(e.target.value.toLowerCase().replace(/\s+/g, '.'))}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-medium"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-700">Login Password</label>
+                  <button
+                    type="button"
+                    onClick={() => setCredentialPassword('RJT' + Math.floor(100000 + Math.random() * 900000))}
+                    className="text-[11px] text-blue-600 hover:underline cursor-pointer flex items-center gap-1 font-semibold"
+                  >
+                    <Sparkles className="w-3 h-3" /> Generate Random
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPasswordInModal ? 'text' : 'password'}
+                    required
+                    value={credentialPassword}
+                    onChange={(e) => setCredentialPassword(e.target.value)}
+                    className="w-full pl-3 pr-9 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-bold text-slate-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordInModal(!showPasswordInModal)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    {showPasswordInModal ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Current / New Password for portal access
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button variant="outline" size="sm" type="button" onClick={() => setPasswordStudent(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="md" type="submit" icon={KeyRound}>
+                Save Credentials & Password
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ======================= EDIT STUDENT MODAL ======================= */}
+      {editingStudent && (
+        <Modal
+          isOpen={Boolean(editingStudent)}
+          onClose={() => setEditingStudent(null)}
+          title={`Edit Student - ${editingStudent.name}`}
+          maxWidth="2xl"
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              updateStudent(editingStudent.id, {
+                name: editingStudent.name,
+                phone: editingStudent.phone,
+                email: editingStudent.email,
+                studentId: editingStudent.studentId,
+                username: editingStudent.username,
+                password: editingStudent.password,
+                status: editingStudent.status,
+                courseId: editingStudent.courseId,
+                batchId: editingStudent.batchId,
+              });
+              setEditingStudent(null);
+            }}
+            className="space-y-4 text-xs"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Student Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingStudent.name}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, name: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Phone Number *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingStudent.phone}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, phone: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Student ID (Roll Prefix)</label>
+                <input
+                  type="text"
+                  required
+                  value={editingStudent.studentId}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, studentId: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono uppercase font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Portal Username / Login ID</label>
+                <input
+                  type="text"
+                  required
+                  value={editingStudent.username || ''}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, username: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Portal Password</label>
+                <input
+                  type="text"
+                  required
+                  value={editingStudent.password || '123456'}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, password: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Enrollment Status</label>
+                <select
+                  value={editingStudent.status}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, status: e.target.value as any })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Inactive">Inactive / Suspended</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button variant="outline" size="sm" type="button" onClick={() => setEditingStudent(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="md" type="submit">
+                Save Student Changes
               </Button>
             </div>
           </form>

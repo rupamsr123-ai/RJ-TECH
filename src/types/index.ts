@@ -78,9 +78,23 @@ export interface Student {
   address: string;
   village: string;
   postOffice: string;
+  policeStation?: string;
   district: string;
   state: string;
   pinCode: string;
+  aadhaar?: string;
+  authUid?: string;
+  password?: string;
+  duration?: string;
+  courseDuration?: string;
+  officialCertificateUrl?: string;
+  officialCertificatePath?: string;
+  officialCertificateDate?: string;
+  officialCertificateUploadedBy?: string;
+  officialMarksheetUrl?: string;
+  officialMarksheetPath?: string;
+  officialMarksheetDate?: string;
+  officialMarksheetUploadedBy?: string;
   courseId: string;
   courseName: string;
   batchId: string;
@@ -136,6 +150,16 @@ export interface AttendanceRecord {
   method: 'QR' | 'Manual';
 }
 
+export interface ExamQuestion {
+  id: string;
+  type: 'MCQ' | 'Short' | 'Long';
+  question: string;
+  options?: string[]; // Options for MCQ (e.g. 4 options)
+  correctAnswer?: string; // Correct answer or option index (0, 1, 2, 3)
+  marks: number;
+  guidance?: string; // Evaluation guideline or sample answer for Short/Long
+}
+
 export interface Exam {
   id: string;
   name?: string;
@@ -148,13 +172,42 @@ export interface Exam {
   date: string;
   time?: string;
   duration?: string;
+  durationMinutes?: number;
   totalMarks: number;
   passMarks?: number;
   passingMarks?: number;
+  instructions?: string;
+  status?: 'Draft' | 'Scheduled' | 'Live' | 'Completed' | 'Upcoming' | 'Graded' | string;
+  questions?: ExamQuestion[];
   theoryMarks?: number;
   practicalMarks?: number;
   vivaMarks?: number;
-  status?: 'Upcoming' | 'Completed' | 'Graded' | string;
+}
+
+export interface ExamAttempt {
+  id: string;
+  examId: string;
+  examTitle: string;
+  studentId: string;
+  studentName: string;
+  registrationNo?: string;
+  rollNo?: string;
+  courseName?: string;
+  batchName?: string;
+  startedAt: number; // epoch ms
+  expiresAt: number; // epoch ms
+  durationMinutes: number;
+  submittedAt?: number;
+  status: 'in-progress' | 'submitted' | 'timed-out';
+  answers: Record<string, string>; // questionId -> answer string
+  mcqScore?: number;
+  manualScore?: number;
+  totalScore?: number;
+  evaluated?: boolean;
+  evaluatedBy?: string;
+  evaluatedAt?: string;
+  evaluationNotes?: string;
+  marksAwarded?: Record<string, number>; // questionId -> awarded marks
 }
 
 export interface ExamResult {
@@ -178,10 +231,11 @@ export interface ExamResult {
   percentage: number;
   grade: string;
   result: 'Pass' | 'Fail';
-  status?: string; // Compatibility alias
+  status?: 'Draft' | 'Published' | string; // Compatibility alias
   examDate: string;
   date?: string; // Compatibility alias
   evaluatedBy: string;
+  officialMarksheetUrl?: string;
 }
 
 export interface Notice {
@@ -201,15 +255,19 @@ export interface StudyMaterial {
   title: string;
   courseId: string;
   courseName: string;
+  batchId?: string;
+  batchName?: string;
   subject?: string;
   description: string;
-  fileType?: 'PDF' | 'Video' | 'Image' | 'Notes' | 'ZIP' | string;
+  fileType?: 'PDF' | 'Video' | 'Image' | 'Notes' | 'ZIP' | 'Link' | 'YouTube' | 'Drive' | string;
   type?: string; // Compatibility alias
   fileUrl?: string;
   url?: string; // Compatibility alias
+  storagePath?: string;
   fileSize?: string;
   size?: string; // Compatibility alias
   uploadDate?: string;
+  uploadedBy?: string;
 }
 
 export interface Certificate {
@@ -227,6 +285,9 @@ export interface Certificate {
   directorName: string;
   verificationUrl: string;
   status: 'Issued' | 'Pending';
+  isOriginalUploaded?: boolean;
+  originalFileUrl?: string;
+  originalStoragePath?: string;
 }
 
 export interface IncomeExpense {
@@ -272,6 +333,22 @@ export interface StaffMember {
   address?: string;
   status: 'Active' | 'On Leave' | 'Inactive' | string;
   avatar?: string;
+  permissions?: StaffPermissions;
+}
+
+export interface StaffPermissions {
+  dashboard: boolean;
+  students: boolean;
+  admission: boolean;
+  attendance: boolean;
+  fees: boolean;
+  examinations: boolean;
+  marksheets: boolean;
+  certificates: boolean;
+  studyMaterials: boolean;
+  idCards: boolean;
+  settings: boolean;
+  reports: boolean;
 }
 
 export interface InstituteSettings {
@@ -290,6 +367,10 @@ export interface InstituteSettings {
   state: string;
   pinCode: string;
   directorName: string;
+  signatureUrl?: string;
+  certificateTemplateUrl?: string;
+  upiId?: string;
+  payeeName?: string;
   currentSession: string;
   regPrefix: string;
   studentIdPrefix: string;
@@ -297,4 +378,6 @@ export interface InstituteSettings {
   certificatePrefix: string;
   referralBonusAmount: number;
   registrationNo?: string;
+  adminPhotoUrl?: string;
+  adminUid?: string;
 }

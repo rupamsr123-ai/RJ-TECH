@@ -1,0 +1,255 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User authentication profile and role assignment",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["superadmin", "staff", "student"] },
+        "studentId": { "type": "string" },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Comprehensive student admission and profile record",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "registrationNo": { "type": "string" },
+        "authUid": { "type": "string" },
+        "name": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "motherName": { "type": "string" },
+        "dob": { "type": "string" },
+        "gender": { "type": "string" },
+        "mobile": { "type": "string" },
+        "email": { "type": "string" },
+        "aadhaar": { "type": "string" },
+        "address": { "type": "string" },
+        "village": { "type": "string" },
+        "postOffice": { "type": "string" },
+        "policeStation": { "type": "string" },
+        "district": { "type": "string" },
+        "state": { "type": "string" },
+        "pin": { "type": "string" },
+        "course": { "type": "string" },
+        "batch": { "type": "string" },
+        "admissionDate": { "type": "string" },
+        "duration": { "type": "string" },
+        "courseFee": { "type": "number" },
+        "paidFee": { "type": "number" },
+        "dueFee": { "type": "number" },
+        "photoUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Completed", "Dropout"] }
+      },
+      "required": ["studentId", "registrationNo", "name", "mobile", "course", "courseFee"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Fee payment transaction log",
+      "type": "object",
+      "properties": {
+        "paymentId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "receiptNo": { "type": "string" },
+        "amount": { "type": "number" },
+        "previousDue": { "type": "number" },
+        "remainingDue": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "transactionId": { "type": "string" },
+        "date": { "type": "string" },
+        "receivedBy": { "type": "string" }
+      },
+      "required": ["paymentId", "studentId", "amount", "date"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Daily student attendance log",
+      "type": "object",
+      "properties": {
+        "attendanceId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "registrationNo": { "type": "string" },
+        "course": { "type": "string" },
+        "batch": { "type": "string" },
+        "date": { "type": "string" },
+        "inTime": { "type": "string" },
+        "outTime": { "type": "string" },
+        "method": { "type": "string" },
+        "status": { "type": "string", "enum": ["Present", "Absent", "Late"] }
+      },
+      "required": ["studentId", "date", "status"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Institute training courses",
+      "type": "object",
+      "properties": {
+        "courseId": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "duration": { "type": "string" },
+        "fee": { "type": "number" },
+        "description": { "type": "string" },
+        "syllabus": { "type": "string" }
+      },
+      "required": ["courseId", "name", "fee"]
+    },
+    "Batch": {
+      "title": "Batch",
+      "description": "Batch class schedules",
+      "type": "object",
+      "properties": {
+        "batchId": { "type": "string" },
+        "name": { "type": "string" },
+        "course": { "type": "string" },
+        "timing": { "type": "string" },
+        "days": { "type": "string" },
+        "trainer": { "type": "string" }
+      },
+      "required": ["batchId", "name"]
+    },
+    "Exam": {
+      "title": "Exam",
+      "description": "Institute examination schedules",
+      "type": "object",
+      "properties": {
+        "examId": { "type": "string" },
+        "title": { "type": "string" },
+        "course": { "type": "string" },
+        "subject": { "type": "string" },
+        "date": { "type": "string" },
+        "totalMarks": { "type": "number" },
+        "passMarks": { "type": "number" }
+      },
+      "required": ["examId", "title", "totalMarks", "passMarks"]
+    },
+    "Mark": {
+      "title": "Mark",
+      "description": "Student marks and exam performance",
+      "type": "object",
+      "properties": {
+        "markId": { "type": "string" },
+        "examId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "registrationNo": { "type": "string" },
+        "course": { "type": "string" },
+        "theoryMarks": { "type": "number" },
+        "practicalMarks": { "type": "number" },
+        "vivaMarks": { "type": "number" },
+        "total": { "type": "number" },
+        "percentage": { "type": "number" },
+        "grade": { "type": "string" },
+        "result": { "type": "string", "enum": ["Pass", "Fail"] }
+      },
+      "required": ["markId", "examId", "studentId", "total"]
+    },
+    "Certificate": {
+      "title": "Certificate",
+      "description": "Student certificates",
+      "type": "object",
+      "properties": {
+        "certificateId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "registrationNo": { "type": "string" },
+        "course": { "type": "string" },
+        "certificateNo": { "type": "string" },
+        "issueDate": { "type": "string" },
+        "grade": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "isUploaded": { "type": "boolean" }
+      },
+      "required": ["certificateId", "studentId", "certificateNo"]
+    },
+    "Marksheet": {
+      "title": "Marksheet",
+      "description": "Student official or generated marksheets",
+      "type": "object",
+      "properties": {
+        "marksheetId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "registrationNo": { "type": "string" },
+        "course": { "type": "string" },
+        "issueDate": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "isUploaded": { "type": "boolean" }
+      },
+      "required": ["marksheetId", "studentId"]
+    },
+    "StudyMaterial": {
+      "title": "StudyMaterial",
+      "description": "Educational materials and resources",
+      "type": "object",
+      "properties": {
+        "materialId": { "type": "string" },
+        "title": { "type": "string" },
+        "course": { "type": "string" },
+        "batch": { "type": "string" },
+        "description": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "fileType": { "type": "string" },
+        "webUrl": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["materialId", "title", "course"]
+    },
+    "StaffPermission": {
+      "title": "StaffPermission",
+      "description": "Module access permissions for staff members",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "permissions": { "type": "object" }
+      },
+      "required": ["uid"]
+    },
+    "InstituteSettings": {
+      "title": "InstituteSettings",
+      "description": "General settings, contact information, and payment options for RJ TECH",
+      "type": "object",
+      "properties": {
+        "instituteName": { "type": "string" },
+        "tagline": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "website": { "type": "string" },
+        "directorName": { "type": "string" },
+        "signatureUrl": { "type": "string" },
+        "upiId": { "type": "string" },
+        "payeeName": { "type": "string" },
+        "certificateTemplateUrl": { "type": "string" }
+      },
+      "required": ["instituteName", "phone"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "UserProfile", "description": "User profiles and role information" },
+    "/students/{studentId}": { "schema": "Student", "description": "Student admission records" },
+    "/payments/{paymentId}": { "schema": "Payment", "description": "Fee payment transactions" },
+    "/attendance/{attendanceId}": { "schema": "Attendance", "description": "Attendance punch records" },
+    "/courses/{courseId}": { "schema": "Course", "description": "Available courses" },
+    "/batches/{batchId}": { "schema": "Batch", "description": "Available class batches" },
+    "/exams/{examId}": { "schema": "Exam", "description": "Exam schedules" },
+    "/marks/{markId}": { "schema": "Mark", "description": "Student marks and exam performance" },
+    "/certificates/{certificateId}": { "schema": "Certificate", "description": "Issued certificates" },
+    "/marksheets/{marksheetId}": { "schema": "Marksheet", "description": "Issued or uploaded marksheets" },
+    "/studyMaterials/{materialId}": { "schema": "StudyMaterial", "description": "Uploaded study materials" },
+    "/staffPermissions/{uid}": { "schema": "StaffPermission", "description": "Staff access permissions" },
+    "/settings/institute": { "schema": "InstituteSettings", "description": "Institute settings and UPI details" }
+  }
+}

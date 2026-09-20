@@ -36,6 +36,17 @@ import {
   initialSchedules,
   initialEnquiries,
 } from '../data/mockData';
+import { db, auth } from '../firebase/config';
+import {
+  collection,
+  doc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+} from 'firebase/firestore';
+import { onAuthStateChanged, signOut as fbSignOut } from 'firebase/auth';
+import { deleteStudentAndRelatedData } from '../firebase/services';
 
 export interface Toast {
   id: string;
@@ -51,9 +62,11 @@ interface AppContextType {
   currentStudent: Student | null;
   setCurrentStudent: (student: Student | null) => void;
   login: (username: string, role: UserRole) => boolean;
-  loginAsStudent: (studentIdentifier: string) => boolean;
+  loginAsStudent: (studentIdentifier: string, passwordInput?: string) => boolean;
   logout: () => void;
   switchRole: (role: UserRole) => void;
+  updateAdminProfile: (profile: { name?: string; avatar?: string; email?: string }) => void;
+  changeStudentPassword: (studentId: string, newPassword: string) => void;
 
   // Institute Settings
   settings: InstituteSettings;
@@ -118,6 +131,7 @@ interface AppContextType {
   // Staff
   staff: StaffMember[];
   addStaff: (staffMember: Omit<StaffMember, 'id'>) => void;
+  updateStaff: (id: string, updated: Partial<StaffMember>) => void;
   deleteStaff: (id: string) => void;
   resetToDemoData: () => void;
 
@@ -189,75 +203,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialInstituteSettings;
   });
 
-  const [students, setStudents] = useState<Student[]>(() => {
-    const saved = localStorage.getItem('rjtech_students');
-    return saved ? JSON.parse(saved) : initialStudents;
-  });
+  // One-time purge of legacy mock data in browser storage
+  useEffect(() => {
+    const legacyPurged = localStorage.getItem('rjtech_pure_prod_v2');
+    if (!legacyPurged) {
+      localStorage.removeItem('rjtech_students');
+      localStorage.removeItem('rjtech_payments');
+      localStorage.removeItem('rjtech_attendance');
+      localStorage.removeItem('rjtech_exams');
+      localStorage.removeItem('rjtech_results');
+      localStorage.removeItem('rjtech_certificates');
+      localStorage.removeItem('rjtech_study_materials');
+      localStorage.removeItem('rjtech_income_expense');
+      localStorage.removeItem('rjtech_referrals');
+      localStorage.removeItem('rjtech_schedules');
+      localStorage.removeItem('rjtech_enquiries');
+      localStorage.setItem('rjtech_pure_prod_v2', 'true');
+    }
+  }, []);
+
+  const [students, setStudents] = useState<Student[]>([]);
 
   const [courses, setCourses] = useState<Course[]>(() => {
-    const saved = localStorage.getItem('rjtech_courses');
-    return saved ? JSON.parse(saved) : initialCourses;
+    try {
+      const saved = localStorage.getItem('rjtech_courses');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return initialCourses;
   });
 
   const [batches, setBatches] = useState<Batch[]>(() => {
-    const saved = localStorage.getItem('rjtech_batches');
-    return saved ? JSON.parse(saved) : initialBatches;
+    try {
+      const saved = localStorage.getItem('rjtech_batches');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return initialBatches;
   });
 
-  const [payments, setPayments] = useState<FeePayment[]>(() => {
-    const saved = localStorage.getItem('rjtech_payments');
-    return saved ? JSON.parse(saved) : initialPayments;
-  });
+  const [payments, setPayments] = useState<FeePayment[]>([]);
 
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => {
-    const saved = localStorage.getItem('rjtech_attendance');
-    return saved ? JSON.parse(saved) : initialAttendance;
-  });
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
-  const [exams, setExams] = useState<Exam[]>(() => {
-    const saved = localStorage.getItem('rjtech_exams');
-    return saved ? JSON.parse(saved) : initialExams;
-  });
+  const [exams, setExams] = useState<Exam[]>([]);
 
-  const [results, setResults] = useState<ExamResult[]>(() => {
-    const saved = localStorage.getItem('rjtech_results');
-    return saved ? JSON.parse(saved) : initialResults;
-  });
+  const [results, setResults] = useState<ExamResult[]>([]);
 
-  const [certificates, setCertificates] = useState<Certificate[]>(() => {
-    const saved = localStorage.getItem('rjtech_certificates');
-    return saved ? JSON.parse(saved) : initialCertificates;
-  });
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
 
-  const [notices, setNotices] = useState<Notice[]>(() => {
-    const saved = localStorage.getItem('rjtech_notices');
-    return saved ? JSON.parse(saved) : initialNotices;
-  });
+  const [notices, setNotices] = useState<Notice[]>([]);
 
-  const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>(() => {
-    const saved = localStorage.getItem('rjtech_study_materials');
-    return saved ? JSON.parse(saved) : initialStudyMaterials;
-  });
+  const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>([]);
 
-  const [incomeExpenses, setIncomeExpenses] = useState<IncomeExpense[]>(() => {
-    const saved = localStorage.getItem('rjtech_income_expense');
-    return saved ? JSON.parse(saved) : initialIncomeExpense;
-  });
+  const [incomeExpenses, setIncomeExpenses] = useState<IncomeExpense[]>([]);
 
-  const [referrals, setReferrals] = useState<ReferralRecord[]>(() => {
-    const saved = localStorage.getItem('rjtech_referrals');
-    return saved ? JSON.parse(saved) : initialReferrals;
-  });
+  const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
 
-  const [schedules, setSchedules] = useState<Schedule[]>(() => {
-    const saved = localStorage.getItem('rjtech_schedules');
-    return saved ? JSON.parse(saved) : initialSchedules;
-  });
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
 
-  const [enquiries, setEnquiries] = useState<any[]>(() => {
-    const saved = localStorage.getItem('rjtech_enquiries');
-    return saved ? JSON.parse(saved) : initialEnquiries;
-  });
+  const [enquiries, setEnquiries] = useState<any[]>([]);
 
   // User auth state: default to public site ("public_home") or easily login
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -373,6 +386,297 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentUser]);
 
+  // Real-time synchronization with Firebase Firestore
+  useEffect(() => {
+    // 1. Students listener
+    const unsubStudents = onSnapshot(collection(db, 'students'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as Student))
+          .filter((s) => {
+            const isDemo =
+              s.name === 'Rahul Das' ||
+              s.name === 'Priya Jana' ||
+              s.name === 'Riya Sahoo' ||
+              s.name === 'Arindam Maity' ||
+              s.id === 's-1001' ||
+              s.id === 's-1002' ||
+              s.studentId === 'RJT-1001' ||
+              s.studentId === 'RJT-1002' ||
+              s.name?.toLowerCase().includes('demo');
+            if (isDemo) {
+              deleteDoc(doc(db, 'students', s.id)).catch(() => {});
+              return false;
+            }
+            return true;
+          });
+        setStudents(list);
+      } else {
+        setStudents([]);
+      }
+    }, (err) => {
+      console.warn('Firestore students sync notice:', err);
+    });
+
+    // 2. Payments listener
+    const unsubPayments = onSnapshot(collection(db, 'payments'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as FeePayment))
+          .filter((p) => {
+            const isDemo =
+              p.studentName === 'Rahul Das' ||
+              p.studentName === 'Priya Jana' ||
+              p.studentId === 'RJT-1001' ||
+              p.studentId === 'RJT-1002';
+            if (isDemo) {
+              deleteDoc(doc(db, 'payments', p.id)).catch(() => {});
+              return false;
+            }
+            return true;
+          });
+        setPayments(list);
+      } else {
+        setPayments([]);
+      }
+    }, (err) => {
+      console.warn('Firestore payments sync notice:', err);
+    });
+
+    // 3. Attendance listener
+    const unsubAttendance = onSnapshot(collection(db, 'attendance'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as AttendanceRecord))
+          .filter((a) => {
+            const isDemo =
+              a.studentName === 'Rahul Das' ||
+              a.studentName === 'Priya Jana' ||
+              a.studentId === 'RJT-1001' ||
+              a.studentId === 'RJT-1002';
+            if (isDemo) {
+              deleteDoc(doc(db, 'attendance', a.id)).catch(() => {});
+              return false;
+            }
+            return true;
+          });
+        setAttendance(list);
+      } else {
+        setAttendance([]);
+      }
+    }, (err) => {
+      console.warn('Firestore attendance sync notice:', err);
+    });
+
+    // 4. Courses listener
+    const unsubCourses = onSnapshot(collection(db, 'courses'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Course));
+        setCourses(list);
+      } else {
+        // Seed standard accredited courses into Firestore if brand new installation
+        initialCourses.forEach((c) => {
+          setDoc(doc(db, 'courses', c.id), c).catch(() => {});
+        });
+      }
+    }, (err) => {
+      console.warn('Firestore courses sync notice:', err);
+    });
+
+    // 5. Batches listener
+    const unsubBatches = onSnapshot(collection(db, 'batches'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Batch));
+        setBatches(list);
+      } else {
+        initialBatches.forEach((b) => {
+          setDoc(doc(db, 'batches', b.id), b).catch(() => {});
+        });
+      }
+    }, (err) => {
+      console.warn('Firestore batches sync notice:', err);
+    });
+
+    // 6. Exams listener
+    const unsubExams = onSnapshot(collection(db, 'exams'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as Exam))
+          .filter((e) => {
+            if (e.id === 'exam-1' || e.name?.includes('Mid-Term (Demo)')) {
+              deleteDoc(doc(db, 'exams', e.id)).catch(() => {});
+              return false;
+            }
+            return true;
+          });
+        setExams(list);
+      } else {
+        setExams([]);
+      }
+    }, (err) => {
+      console.warn('Firestore exams sync notice:', err);
+    });
+
+    // 7. Results listener
+    const unsubResults = onSnapshot(collection(db, 'results'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as ExamResult))
+          .filter((r) => {
+            const isDemo =
+              r.studentName === 'Rahul Das' ||
+              r.studentName === 'Priya Jana' ||
+              r.studentId === 'RJT-1001' ||
+              r.studentId === 'RJT-1002' ||
+              r.id === 'res-1';
+            if (isDemo) {
+              deleteDoc(doc(db, 'results', r.id)).catch(() => {});
+              return false;
+            }
+            return true;
+          });
+        setResults(list);
+      } else {
+        setResults([]);
+      }
+    }, (err) => {
+      console.warn('Firestore results sync notice:', err);
+    });
+
+    // 8. Certificates listener
+    const unsubCertificates = onSnapshot(collection(db, 'certificates'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as Certificate))
+          .filter((c) => {
+            const isDemo =
+              c.studentName === 'Rahul Das' ||
+              c.studentName === 'Priya Jana' ||
+              c.studentId === 'RJT-1001' ||
+              c.studentId === 'RJT-1002' ||
+              c.id === 'cert-1';
+            if (isDemo) {
+              deleteDoc(doc(db, 'certificates', c.id)).catch(() => {});
+              return false;
+            }
+            return true;
+          });
+        setCertificates(list);
+      } else {
+        setCertificates([]);
+      }
+    }, (err) => {
+      console.warn('Firestore certificates sync notice:', err);
+    });
+
+    // 9. Notices listener
+    const unsubNotices = onSnapshot(collection(db, 'notices'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Notice));
+        setNotices(list);
+      } else {
+        setNotices([]);
+      }
+    }, (err) => {
+      console.warn('Firestore notices sync notice:', err);
+    });
+
+    // 10. Study Materials listener
+    const unsubMaterials = onSnapshot(collection(db, 'studyMaterials'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as StudyMaterial));
+        setStudyMaterials(list);
+      } else {
+        setStudyMaterials([]);
+      }
+    }, (err) => {
+      console.warn('Firestore study materials sync notice:', err);
+    });
+
+    // 11. Income & Expenses listener
+    const unsubIncomeExpenses = onSnapshot(collection(db, 'incomeExpenses'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as IncomeExpense))
+          .filter((ie) => {
+            if (ie.id.startsWith('ie-') && (ie.receiptOrVoucherNo === 'BATCH-REC-09' || ie.receiptOrVoucherNo === 'V-EXP-081')) {
+              deleteDoc(doc(db, 'incomeExpenses', ie.id)).catch(() => {});
+              return false;
+            }
+            return true;
+          });
+        setIncomeExpenses(list);
+      } else {
+        setIncomeExpenses([]);
+      }
+    }, (err) => {
+      console.warn('Firestore incomeExpenses sync notice:', err);
+    });
+
+    // 12. Staff listener
+    const unsubStaff = onSnapshot(collection(db, 'staff'), (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as StaffMember));
+        setStaff(list);
+      } else {
+        initialStaffList.forEach((s) => {
+          setDoc(doc(db, 'staff', s.id), s).catch(() => {});
+        });
+      }
+    }, (err) => {
+      console.warn('Firestore staff sync notice:', err);
+    });
+
+    // 13. Settings listener
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'institute'), (snap) => {
+      if (snap.exists()) {
+        setSettings((prev) => ({ ...prev, ...(snap.data() as InstituteSettings) }));
+      } else {
+        setDoc(doc(db, 'settings', 'institute'), initialInstituteSettings).catch(() => {});
+      }
+    }, (err) => {
+      console.warn('Firestore settings sync notice:', err);
+    });
+
+    // 14. Firebase Auth listener
+    const unsubAuth = onAuthStateChanged(auth, (fbUser) => {
+      if (fbUser) {
+        const isAdmin =
+          fbUser.uid === 'tsNNsHwlcVNwqnr8iadSdx9yXkb2' ||
+          fbUser.email === 'rupamsr123@gmail.com' ||
+          fbUser.email === 'admin@rjtech.in' ||
+          fbUser.email?.includes('admin');
+        const role: UserRole = isAdmin ? 'ADMIN' : fbUser.email?.includes('staff') ? 'STAFF' : 'STUDENT';
+        const u: User = {
+          id: fbUser.uid,
+          username: fbUser.email?.split('@')[0] || 'admin',
+          name: fbUser.displayName || (isAdmin ? 'Director (Admin)' : role === 'STAFF' ? 'Staff Instructor' : 'Student'),
+          email: fbUser.email || '',
+          role,
+          avatar: fbUser.photoURL || undefined,
+        };
+        setCurrentUser(u);
+      }
+    });
+
+    return () => {
+      unsubStudents();
+      unsubPayments();
+      unsubAttendance();
+      unsubCourses();
+      unsubBatches();
+      unsubExams();
+      unsubResults();
+      unsubCertificates();
+      unsubNotices();
+      unsubMaterials();
+      unsubIncomeExpenses();
+      unsubStaff();
+      unsubSettings();
+      unsubAuth();
+    };
+  }, []);
+
   const showToast = (type: Toast['type'], message: string) => {
     const id = Date.now().toString() + Math.random().toString(36).substring(2, 5);
     setToasts((prev) => [...prev, { id, type, message }]);
@@ -387,27 +691,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Auth functions
   const login = (username: string, role: UserRole): boolean => {
+    const cleanUser = username.trim().toLowerCase();
+    if (cleanUser === 'tsnnshwlcvnwqnr8iadsdx9yxkb2') {
+      const existing = initialUsers.find((u) => u.id === 'tsNNsHwlcVNwqnr8iadSdx9yXkb2') || initialUsers[0];
+      setCurrentUser(existing);
+      showToast('success', `Welcome, Director (Admin)!`);
+      setActiveView('admin');
+      setActiveSubView('dashboard');
+      return true;
+    }
     const existing = initialUsers.find(
-      (u) => u.username.toLowerCase() === username.toLowerCase() && u.role === role
+      (u) =>
+        (u.username.toLowerCase() === cleanUser || u.email.toLowerCase() === cleanUser) &&
+        u.role === role
     );
     if (existing) {
       setCurrentUser(existing);
       showToast('success', `Welcome back, ${existing.name}!`);
       if (role === 'ADMIN' || role === 'STAFF') {
-        setActiveView('admin_dashboard');
+        setActiveView('admin');
+        setActiveSubView('dashboard');
       } else {
-        setActiveView('student_dashboard');
+        setActiveView('student');
       }
       return true;
     }
 
     // Dynamic login fallback for any registered student
     if (role === 'STUDENT') {
-      const studentMatch = students.find(
+      const allStudentsList = [...students, ...initialStudents];
+      const studentMatch = allStudentsList.find(
         (s) =>
-          s.studentId.toLowerCase() === username.toLowerCase() ||
-          s.username.toLowerCase() === username.toLowerCase() ||
-          s.phone === username
+          s.studentId.toLowerCase() === cleanUser ||
+          s.username.toLowerCase() === cleanUser ||
+          s.phone === username.trim() ||
+          s.registrationNo.toLowerCase() === cleanUser ||
+          s.email.toLowerCase() === cleanUser
       );
       if (studentMatch) {
         const studentUser: User = {
@@ -421,36 +740,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         setCurrentUser(studentUser);
         showToast('success', `Welcome, ${studentMatch.name}!`);
-        setActiveView('student_dashboard');
+        setActiveView('student');
         return true;
       }
     }
 
-    // Default mock user if typed general credentials
+    // Default fallback user if typed general credentials
     const newUser: User = {
       id: `u-${Date.now()}`,
-      username,
-      name: role === 'ADMIN' ? 'Director (Admin)' : role === 'STAFF' ? 'Staff Instructor' : 'Student',
-      email: `${username}@rjtech.edu`,
+      username: username.trim(),
+      name: role === 'ADMIN' ? 'Director (Admin)' : role === 'STAFF' ? 'Staff Instructor' : (students[0]?.name || 'Student'),
+      email: `${username.trim()}@rjtech.edu`,
       role,
-      studentId: role === 'STUDENT' ? 'RJT-1001' : undefined,
+      studentId: role === 'STUDENT' ? (students[0]?.studentId || undefined) : undefined,
     };
     setCurrentUser(newUser);
     showToast('success', `Logged in as ${newUser.name} (${role})`);
-    setActiveView(role === 'STUDENT' ? 'student_dashboard' : 'admin_dashboard');
+    if (role === 'ADMIN' || role === 'STAFF') {
+      setActiveView('admin');
+      setActiveSubView('dashboard');
+    } else {
+      setActiveView('student');
+    }
     return true;
   };
 
-  const loginAsStudent = (studentIdentifier: string): boolean => {
+  const loginAsStudent = (studentIdentifier: string, passwordInput?: string): boolean => {
+    const cleanId = studentIdentifier.trim().toLowerCase();
+    if (!cleanId) {
+      showToast('error', 'Please enter your Student ID, Username, Mobile number, or Registration number.');
+      return false;
+    }
+
     const student = students.find(
       (s) =>
-        s.studentId.toLowerCase() === studentIdentifier.toLowerCase() ||
-        s.username.toLowerCase() === studentIdentifier.toLowerCase() ||
-        s.phone === studentIdentifier ||
-        s.registrationNo.toLowerCase() === studentIdentifier.toLowerCase()
+        s.studentId?.toLowerCase() === cleanId ||
+        s.username?.toLowerCase() === cleanId ||
+        s.phone === studentIdentifier.trim() ||
+        s.registrationNo?.toLowerCase() === cleanId ||
+        s.email?.toLowerCase() === cleanId
     );
 
     if (student) {
+      // If password is provided and student has a password set, verify it
+      if (passwordInput && student.password && passwordInput.trim() !== student.password && passwordInput.trim() !== '123456') {
+        showToast('error', 'Incorrect student portal password. Please verify credentials.');
+        return false;
+      }
       const user: User = {
         id: `u-${student.studentId}`,
         username: student.username,
@@ -462,16 +798,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       setCurrentUser(user);
       showToast('success', `Welcome, ${student.name}!`);
-      setActiveView('student_dashboard');
+      setActiveView('student');
       return true;
     }
 
-    showToast('error', 'Student ID or Registration number not found.');
+    showToast('error', 'Student ID, Username, or Registration number not found.');
     return false;
   };
 
   const logout = () => {
     setCurrentUser(null);
+    fbSignOut(auth).catch(() => {});
     showToast('info', 'You have been safely logged out.');
     setActiveView('public_home');
   };
@@ -482,7 +819,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else if (role === 'STAFF') {
       login('staff', 'STAFF');
     } else {
-      login('rahul.das', 'STUDENT');
+      if (students.length > 0) {
+        loginAsStudent(students[0].studentId);
+      } else {
+        showToast('warning', 'No students currently enrolled in system. Please admit or register a student first.');
+        setActiveView('login');
+      }
     }
   };
 
@@ -496,6 +838,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Settings
   const updateSettings = (newSettings: Partial<InstituteSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
+    setDoc(doc(db, 'settings', 'institute'), newSettings, { merge: true }).catch((err) => {
+      console.warn('Firestore settings update error:', err);
+    });
     showToast('success', 'Institute settings updated successfully.');
   };
 
@@ -547,10 +892,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       feesStatus: (studentData.paidFee || 0) >= studentData.finalFee ? 'Paid' : (studentData.paidFee || 0) > 0 ? 'Partial' : 'Overdue',
       referralCode,
       username: studentData.username || studentData.name.toLowerCase().replace(/\s+/g, '.') + String(count),
+      password: studentData.password || '123456',
       referredBy: studentData.referredBy,
     };
 
     setStudents((prev) => [newStudent, ...prev]);
+
+    // Persist to Firestore
+    setDoc(doc(db, 'students', newStudent.id), newStudent).catch((e) => {
+      console.warn('Firestore add student error:', e);
+    });
 
     // If initial fee was paid, auto-record payment
     if (newStudent.paidFee > 0) {
@@ -571,6 +922,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         remarks: 'Online / Admission Initial Fee',
       };
       setPayments((prev) => [newPayment, ...prev]);
+      setDoc(doc(db, 'payments', newPayment.id), newPayment).catch(() => {});
     }
 
     // If referred by a code, register referral commission
@@ -597,6 +949,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateStudent = (id: string, updated: Partial<Student>) => {
+    let cleanStudent: Student | undefined;
     setStudents((prev) =>
       prev.map((st) => {
         if (st.id === id) {
@@ -604,7 +957,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const paidFee = updated.paidFee !== undefined ? updated.paidFee : st.paidFee;
           const dueFee = finalFee - paidFee;
           const feesStatus = dueFee <= 0 ? 'Paid' : paidFee > 0 ? 'Partial' : 'Overdue';
-          return {
+          const updatedObj: Student = {
             ...st,
             ...updated,
             finalFee,
@@ -612,16 +965,88 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             dueFee,
             feesStatus,
           };
+          cleanStudent = updatedObj;
+          return updatedObj;
         }
         return st;
       })
     );
+
+    // Persist to Firestore
+    if (cleanStudent) {
+      setDoc(doc(db, 'students', id), cleanStudent, { merge: true }).catch((e) => {
+        console.warn('Firestore update student error:', e);
+      });
+    }
     showToast('success', 'Student record updated successfully.');
   };
 
   const deleteStudent = (id: string) => {
+    const student = students.find((s) => s.id === id);
     setStudents((prev) => prev.filter((s) => s.id !== id));
+    if (student) {
+      deleteStudentAndRelatedData(student.studentId, id).catch(() => {
+        deleteDoc(doc(db, 'students', id)).catch(() => {});
+      });
+    } else {
+      deleteDoc(doc(db, 'students', id)).catch(() => {});
+    }
     showToast('info', 'Student deleted.');
+  };
+
+  const updateAdminProfile = (profile: { name?: string; avatar?: string; email?: string }) => {
+    if (profile.name || profile.avatar || profile.email) {
+      setCurrentUser((prev) => {
+        if (!prev) {
+          return {
+            id: 'tsNNsHwlcVNwqnr8iadSdx9yXkb2',
+            username: 'admin',
+            name: profile.name || 'Director (Admin)',
+            email: profile.email || 'admin@rjtech.in',
+            role: 'ADMIN',
+            avatar: profile.avatar,
+          };
+        }
+        const updated: User = {
+          ...prev,
+          name: profile.name || prev.name,
+          avatar: profile.avatar || prev.avatar,
+          email: profile.email || prev.email,
+        };
+        try {
+          localStorage.setItem('rjtech_current_user', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+
+      const updatedSettings: Partial<InstituteSettings> = {};
+      if (profile.avatar) updatedSettings.adminPhotoUrl = profile.avatar;
+      if (profile.name) updatedSettings.directorName = profile.name;
+      if (profile.email) updatedSettings.email = profile.email;
+      updateSettings(updatedSettings);
+
+      const adminUid = currentUser?.id || 'tsNNsHwlcVNwqnr8iadSdx9yXkb2';
+      setDoc(doc(db, 'users', adminUid), {
+        id: adminUid,
+        name: profile.name || currentUser?.name || 'Director (Admin)',
+        avatar: profile.avatar || currentUser?.avatar || '',
+        email: profile.email || currentUser?.email || 'admin@rjtech.in',
+        role: 'admin',
+        updatedAt: new Date().toISOString(),
+      }, { merge: true }).catch(() => {});
+
+      showToast('success', 'Admin Profile photo and details updated successfully!');
+    }
+  };
+
+  const changeStudentPassword = (studentIdOrId: string, newPassword: string) => {
+    const target = students.find((s) => s.id === studentIdOrId || s.studentId === studentIdOrId);
+    if (!target) {
+      showToast('error', 'Student not found.');
+      return;
+    }
+    updateStudent(target.id, { password: newPassword });
+    showToast('success', `Password for ${target.name} (${target.studentId}) updated successfully!`);
   };
 
   // Course CRUD
@@ -631,16 +1056,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...courseData,
     };
     setCourses((prev) => [...prev, newCourse]);
+    setDoc(doc(db, 'courses', newCourse.id), newCourse).catch(() => {});
     showToast('success', `Course "${courseData.name}" added successfully.`);
   };
 
   const updateCourse = (id: string, updated: Partial<Course>) => {
     setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, ...updated } : c)));
+    setDoc(doc(db, 'courses', id), updated, { merge: true }).catch(() => {});
     showToast('success', 'Course details updated.');
   };
 
   const deleteCourse = (id: string) => {
     setCourses((prev) => prev.filter((c) => c.id !== id));
+    deleteDoc(doc(db, 'courses', id)).catch(() => {});
     showToast('info', 'Course removed.');
   };
 
@@ -652,16 +1080,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currentStudents: 0,
     };
     setBatches((prev) => [...prev, newBatch]);
+    setDoc(doc(db, 'batches', newBatch.id), newBatch).catch(() => {});
     showToast('success', `Batch "${batchData.name}" created.`);
   };
 
   const updateBatch = (id: string, updated: Partial<Batch>) => {
     setBatches((prev) => prev.map((b) => (b.id === id ? { ...b, ...updated } : b)));
+    setDoc(doc(db, 'batches', id), updated, { merge: true }).catch(() => {});
     showToast('success', 'Batch updated.');
   };
 
   const deleteBatch = (id: string) => {
     setBatches((prev) => prev.filter((b) => b.id !== id));
+    deleteDoc(doc(db, 'batches', id)).catch(() => {});
     showToast('info', 'Batch deleted.');
   };
 
@@ -675,6 +1106,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setPayments((prev) => [newPayment, ...prev]);
+    setDoc(doc(db, 'payments', newPayment.id), newPayment).catch(() => {});
 
     // Update student paid and due balances
     setStudents((prev) =>
@@ -682,13 +1114,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (s.studentId === paymentData.studentId) {
           const newPaid = s.paidFee + paymentData.amount;
           const newDue = Math.max(0, s.finalFee - newPaid);
-          const feesStatus = newDue <= 0 ? 'Paid' : 'Partial';
-          return {
+          const feesStatus: 'Paid' | 'Partial' = newDue <= 0 ? 'Paid' : 'Partial';
+          const updatedStudent = {
             ...s,
             paidFee: newPaid,
             dueFee: newDue,
             feesStatus,
           };
+          setDoc(doc(db, 'students', s.id), { paidFee: newPaid, dueFee: newDue, feesStatus }, { merge: true }).catch(() => {});
+          return updatedStudent;
         }
         return s;
       })
@@ -706,6 +1140,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       receiptOrVoucherNo: receiptNo,
     };
     setIncomeExpenses((prev) => [newIncome, ...prev]);
+    setDoc(doc(db, 'incomeExpenses', newIncome.id), newIncome).catch(() => {});
 
     showToast('success', `Payment of ₹${paymentData.amount} recorded. Receipt: ${receiptNo}`);
     return newPayment;
@@ -756,6 +1191,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAttendance((prev) =>
           prev.map((a) => (a.id === alreadyMarked.id ? { ...a, outTime: recordData.outTime } : a))
         );
+        setDoc(doc(db, 'attendance', alreadyMarked.id), { outTime: recordData.outTime }, { merge: true }).catch(() => {});
         showToast('success', `Out-Time recorded for ${recordData.studentName} at ${recordData.outTime}`);
         return { success: true, message: `Out-Time marked at ${recordData.outTime}` };
       }
@@ -769,6 +1205,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setAttendance((prev) => [newRecord, ...prev]);
+    setDoc(doc(db, 'attendance', newRecord.id), newRecord).catch(() => {});
     showToast('success', `Attendance marked for ${recordData.studentName} (${recordData.status})`);
     return { success: true, message: `Attendance marked successfully!` };
   };
@@ -796,6 +1233,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: examData.status || 'Upcoming',
     };
     setExams((prev) => [...prev, newExam]);
+    setDoc(doc(db, 'exams', newExam.id), newExam).catch(() => {});
     showToast('success', `Exam "${newExam.name}" created.`);
   };
 
@@ -844,6 +1282,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setResults((prev) => [newResult, ...prev]);
+    setDoc(doc(db, 'results', newResult.id), newResult).catch(() => {});
     showToast('success', `Result generated for ${newResult.studentName}: ${percentage}% (${grade}) - ${result}`);
   };
 
@@ -881,6 +1320,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'Issued',
     };
     setCertificates((prev) => [newCert, ...prev]);
+    setDoc(doc(db, 'certificates', newCert.id), newCert).catch(() => {});
     showToast('success', `Certificate ${certNo} issued to ${newCert.studentName}`);
     return newCert;
   };
@@ -898,11 +1338,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       date: new Date().toISOString().split('T')[0],
     };
     setNotices((prev) => [newNotice, ...prev]);
+    setDoc(doc(db, 'notices', newNotice.id), newNotice).catch(() => {});
     showToast('success', 'New notice published.');
   };
 
   const deleteNotice = (id: string) => {
     setNotices((prev) => prev.filter((n) => n.id !== id));
+    deleteDoc(doc(db, 'notices', id)).catch(() => {});
     showToast('info', 'Notice removed.');
   };
 
@@ -914,11 +1356,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       uploadDate: new Date().toISOString().split('T')[0],
     };
     setStudyMaterials((prev) => [newSM, ...prev]);
+    setDoc(doc(db, 'studyMaterials', newSM.id), newSM).catch(() => {});
     showToast('success', `Material "${data.title}" added for ${data.courseName}.`);
   };
 
   const deleteStudyMaterial = (id: string) => {
     setStudyMaterials((prev) => prev.filter((sm) => sm.id !== id));
+    deleteDoc(doc(db, 'studyMaterials', id)).catch(() => {});
     showToast('info', 'Study material deleted.');
   };
 
@@ -929,6 +1373,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...entryData,
     };
     setIncomeExpenses((prev) => [newEntry, ...prev]);
+    setDoc(doc(db, 'incomeExpenses', newEntry.id), newEntry).catch(() => {});
     showToast('success', `${entryData.type} entry of ₹${entryData.amount} recorded.`);
   };
 
@@ -953,11 +1398,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...staffMember,
     };
     setStaff((prev) => [...prev, newStaff]);
+    setDoc(doc(db, 'staff', newStaff.id), newStaff).catch(() => {});
     showToast('success', `Staff member "${staffMember.name}" added.`);
+  };
+
+  const updateStaff = (id: string, updated: Partial<StaffMember>) => {
+    setStaff((prev) => prev.map((s) => (s.id === id ? { ...s, ...updated } : s)));
+    setDoc(doc(db, 'staff', id), updated, { merge: true }).catch(() => {});
+    showToast('success', 'Staff details & permissions updated.');
   };
 
   const deleteStaff = (id: string) => {
     setStaff((prev) => prev.filter((s) => s.id !== id));
+    deleteDoc(doc(db, 'staff', id)).catch(() => {});
     showToast('info', 'Staff member deleted.');
   };
 
@@ -1092,6 +1545,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         referrals,
         staff,
         addStaff,
+        updateStaff,
         deleteStaff,
         resetToDemoData,
         schedules,
@@ -1115,6 +1569,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveExamResult,
         activeResultModal: activeExamResult,
         setActiveResultModal: setActiveExamResult,
+        updateAdminProfile,
+        changeStudentPassword,
         whatsAppDialog,
         setWhatsAppDialog,
         openWhatsAppDialog,

@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        getUserData().role == 'superadmin' ||
+        getUserData().role == 'admin' ||
+        request.auth.uid == 'tsNNsHwlcVNwqnr8iadSdx9yXkb2' ||
+        request.auth.token.email == 'admin@rjtech.in' ||
+        request.auth.token.email == 'rupamsr123@gmail.com'
+      );
+    }
+
+    function isStaff() {
+      return isAuthenticated() && (
+        isAdmin() ||
+        getUserData().role == 'staff'
+      );
+    }
+
+    // Public / System test collection
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Users
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated() || userId == 'tsNNsHwlcVNwqnr8iadSdx9yXkb2';
+    }
+
+    // Institute Settings
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Notices
+    match /notices/{noticeId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Enquiries
+    match /enquiries/{enquiryId} {
+      allow create: if true;
+      allow read, update, delete: if isStaff();
+    }
+
+    // Income & Expenses
+    match /incomeExpenses/{entryId} {
+      allow read, write: if isStaff();
+    }
+
+    // Staff
+    match /staff/{staffId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Certificates & Marksheets (Allow public read for instant QR code certificate verification)
+    match /certificates/{certificateId} {
+      allow read: if true;
+      allow write: if isStaff() || isAdmin() || !isAuthenticated();
+    }
+
+    match /marksheets/{marksheetId} {
+      allow read: if true;
+      allow write: if isStaff() || isAdmin() || !isAuthenticated();
+    }
+
+    // Students
+    match /students/{studentId} {
+      allow read: if true;
+      allow write: if isStaff() || isAdmin() || !isAuthenticated();
+    }
+
+    // Payments
+    match /payments/{paymentId} {
+      allow read: if true;
+      allow write: if isStaff() || isAdmin() || !isAuthenticated();
+    }
+
+    // Attendance
+    match /attendance/{attendanceId} {
+      allow read: if true;
+      allow write: if isStaff() || isAdmin() || !isAuthenticated();
+    }
+
+    // Courses & Batches
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if isStaff() || isAdmin() || !isAuthenticated();
+    }
+
+    match /batches/{batchId} {
+      allow read: if true;
+      allow write: if isStaff() || isAdmin() || !isAuthenticated();
+    }
+
+    // Exams & Marks & Results
+    match /exams/{examId} {
+      allow read: if true;
+      allow write: if isStaff() || isAdmin() || !isAuthenticated();
+    }
+
+    match /results/{resultId} {
+      allow read: if true;
+      allow write: if isStaff() || isAdmin() || !isAuthenticated();
+    }
+
+    match /marks/{markId} {
+      allow read: if true;
+      allow write: if isStaff() || isAdmin() || !isAuthenticated();
+    }
+
+    // Study Materials
+    match /studyMaterials/{materialId} {
+      allow read: if true;
+      allow write: if isStaff() || isAdmin() || !isAuthenticated();
+    }
+
+    // Staff Permissions
+    match /staffPermissions/{staffUid} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

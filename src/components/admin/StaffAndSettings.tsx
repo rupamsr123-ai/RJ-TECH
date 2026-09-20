@@ -18,9 +18,13 @@ import {
   Camera,
   Link as LinkIcon,
   RotateCcw,
+  Key,
+  QrCode,
+  IndianRupee,
+  FileCheck2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { StaffMember } from '../../types';
+import { StaffMember, StaffPermissions } from '../../types';
 import { Button, Card, Badge, Modal } from '../common/UIComponents';
 
 export const StaffAndSettings: React.FC<{
@@ -31,6 +35,7 @@ export const StaffAndSettings: React.FC<{
     settings,
     updateSettings,
     addStaff,
+    updateStaff,
     deleteStaff,
     resetToDemoData,
     showToast,
@@ -42,6 +47,28 @@ export const StaffAndSettings: React.FC<{
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [customLogoUrl, setCustomLogoUrl] = useState('');
   const [isProcessingLogo, setIsProcessingLogo] = useState(false);
+
+  // Signature upload state
+  const signatureInputRef = useRef<HTMLInputElement>(null);
+  const [customSignatureUrl, setCustomSignatureUrl] = useState('');
+  const [isProcessingSignature, setIsProcessingSignature] = useState(false);
+
+  // Staff Permissions Modal State
+  const [selectedStaffForPerms, setSelectedStaffForPerms] = useState<StaffMember | null>(null);
+  const [currentPerms, setCurrentPerms] = useState<StaffPermissions>({
+    dashboard: true,
+    students: true,
+    admission: true,
+    attendance: true,
+    fees: true,
+    examinations: true,
+    marksheets: true,
+    certificates: true,
+    studyMaterials: true,
+    idCards: true,
+    settings: false,
+    reports: true,
+  });
 
   // Add Staff Modal
   const [staffModalOpen, setStaffModalOpen] = useState(false);
@@ -111,6 +138,74 @@ export const StaffAndSettings: React.FC<{
     setInstituteForm((prev) => ({ ...prev, logoUrl: defaultLogo }));
     updateSettings({ logoUrl: defaultLogo });
     showToast('info', 'Institute logo reset to default official RJ TECH badge.');
+  };
+
+  // Handle Signature upload
+  const handleSignatureFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('error', 'Please choose a valid signature image.');
+      return;
+    }
+
+    setIsProcessingSignature(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setInstituteForm((prev) => ({ ...prev, signatureUrl: dataUrl }));
+        updateSettings({ signatureUrl: dataUrl });
+        showToast('success', 'Director digital signature updated successfully!');
+      }
+      setIsProcessingSignature(false);
+    };
+    reader.onerror = () => {
+      showToast('error', 'Failed to read signature image.');
+      setIsProcessingSignature(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleApplySignatureUrl = () => {
+    if (!customSignatureUrl.trim()) {
+      showToast('error', 'Please enter a valid signature web URL.');
+      return;
+    }
+    const cleanUrl = customSignatureUrl.trim();
+    setInstituteForm((prev) => ({ ...prev, signatureUrl: cleanUrl }));
+    updateSettings({ signatureUrl: cleanUrl });
+    showToast('success', 'Director signature URL applied successfully!');
+    setCustomSignatureUrl('');
+  };
+
+  // Open Permissions Modal
+  const handleOpenPermissions = (st: StaffMember) => {
+    setSelectedStaffForPerms(st);
+    setCurrentPerms(
+      st.permissions || {
+        dashboard: true,
+        students: true,
+        admission: true,
+        attendance: true,
+        fees: st.role === 'Admin' || st.role === 'Accountant',
+        examinations: true,
+        marksheets: true,
+        certificates: st.role === 'Admin',
+        studyMaterials: true,
+        idCards: true,
+        settings: st.role === 'Admin',
+        reports: true,
+      }
+    );
+  };
+
+  const handleSavePermissions = () => {
+    if (!selectedStaffForPerms) return;
+    updateStaff(selectedStaffForPerms.id, { permissions: currentPerms });
+    setSelectedStaffForPerms(null);
+    showToast('success', `Access permissions updated for ${selectedStaffForPerms.name}`);
   };
 
   const handleCreateStaff = (e: React.FormEvent) => {
@@ -248,12 +343,24 @@ export const StaffAndSettings: React.FC<{
 
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-medium">Joined: {st.joiningDate}</span>
-                  <button
-                    onClick={() => deleteStaff(st.id)}
-                    className="p-1 text-slate-400 hover:text-rose-600"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPermissions(st)}
+                      className="px-2 py-1 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-lg font-semibold flex items-center gap-1 transition-colors"
+                      title="Configure Permissions"
+                    >
+                      <Shield className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Permissions</span>
+                    </button>
+                    <button
+                      onClick={() => deleteStaff(st.id)}
+                      className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
+                      title="Delete Staff"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </Card>
             ))}
@@ -383,6 +490,109 @@ export const StaffAndSettings: React.FC<{
             </div>
           </Card>
 
+          {/* Director Signature & Official Seal Card */}
+          <Card className="p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900">Director Digital Signature & Official Stamp</h3>
+                  <Badge variant="primary" size="sm">Document Security</Badge>
+                </div>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  Appears automatically on official completion certificates, marksheet grade cards, and fee receipts.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+              {/* Signature Preview */}
+              <div className="md:col-span-4 flex flex-col items-center justify-center p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl text-center">
+                <div className="relative w-44 h-20 rounded-xl overflow-hidden bg-white border border-slate-200 shadow-xs p-2 flex items-center justify-center">
+                  {instituteForm.signatureUrl || settings.signatureUrl ? (
+                    <img
+                      src={instituteForm.signatureUrl || settings.signatureUrl}
+                      alt="Director Signature"
+                      className="w-full h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span className="text-xs font-serif italic text-slate-400">
+                      RJ TECH Director
+                    </span>
+                  )}
+                  {isProcessingSignature && (
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center text-white text-xs font-bold rounded-xl">
+                      Saving...
+                    </div>
+                  )}
+                </div>
+                <span className="mt-2.5 text-[11px] font-bold text-slate-700 block">
+                  Active Digital Signature
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {settings.directorName || 'Director, RJ TECH'}
+                </span>
+              </div>
+
+              {/* Upload Controls */}
+              <div className="md:col-span-8 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                    Upload Signature Image (Transparent PNG Recommended)
+                  </label>
+                  <input
+                    ref={signatureInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    onChange={handleSignatureFileUpload}
+                    className="hidden"
+                  />
+                  <div className="flex flex-wrap gap-2.5 items-center">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      icon={Upload}
+                      onClick={() => signatureInputRef.current?.click()}
+                      disabled={isProcessingSignature}
+                    >
+                      {isProcessingSignature ? 'Uploading...' : 'Choose Signature File'}
+                    </Button>
+                    <span className="text-[11px] text-slate-400">
+                      PNG / JPG (Transparent background recommended)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100">
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                    Or Enter Signature Image URL
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <LinkIcon className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                      <input
+                        type="url"
+                        placeholder="https://example.com/signature.png"
+                        value={customSignatureUrl}
+                        onChange={(e) => setCustomSignatureUrl(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleApplySignatureUrl}
+                    >
+                      Apply Signature
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           {/* Institute Details Form Card */}
           <Card className="p-6 sm:p-8">
             <form onSubmit={handleSaveSettings} className="space-y-6 text-xs">
@@ -495,6 +705,90 @@ export const StaffAndSettings: React.FC<{
                   }
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold"
                 />
+              </div>
+            </div>
+
+            {/* Payment & UPI Settings */}
+            <div className="pt-4 border-t border-slate-100">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <IndianRupee className="w-4 h-4 text-emerald-600" /> Fee Collection & UPI QR Configuration
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">UPI ID for Payment QR</label>
+                  <input
+                    type="text"
+                    value={instituteForm.upiId || '9635302734@okaxis'}
+                    onChange={(e) => setInstituteForm({ ...instituteForm, upiId: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-bold text-blue-900"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Used for dynamic UPI payment QR codes</p>
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Payee Account Name</label>
+                  <input
+                    type="text"
+                    value={instituteForm.payeeName || 'RJ TECH'}
+                    onChange={(e) => setInstituteForm({ ...instituteForm, payeeName: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Appears on UPI apps (GPay, PhonePe, Paytm)</p>
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Student Referral Bonus (₹)</label>
+                  <input
+                    type="number"
+                    value={instituteForm.referralBonusAmount || 250}
+                    onChange={(e) => setInstituteForm({ ...instituteForm, referralBonusAmount: Number(e.target.value) })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-emerald-700"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Credited to student wallet per admission</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Document Numbering Prefixes */}
+            <div className="pt-4 border-t border-slate-100">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <FileCheck2 className="w-4 h-4 text-blue-600" /> Automated Numbering Prefixes
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Student ID Prefix</label>
+                  <input
+                    type="text"
+                    value={instituteForm.studentIdPrefix || 'RJT-'}
+                    onChange={(e) => setInstituteForm({ ...instituteForm, studentIdPrefix: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Registration Prefix</label>
+                  <input
+                    type="text"
+                    value={instituteForm.regPrefix || 'RJT-REG-'}
+                    onChange={(e) => setInstituteForm({ ...instituteForm, regPrefix: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Fee Receipt Prefix</label>
+                  <input
+                    type="text"
+                    value={instituteForm.receiptPrefix || 'RJT-REC-'}
+                    onChange={(e) => setInstituteForm({ ...instituteForm, receiptPrefix: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Certificate Prefix</label>
+                  <input
+                    type="text"
+                    value={instituteForm.certificatePrefix || 'RJT-CERT-'}
+                    onChange={(e) => setInstituteForm({ ...instituteForm, certificatePrefix: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                  />
+                </div>
               </div>
             </div>
 
@@ -667,6 +961,156 @@ export const StaffAndSettings: React.FC<{
               </Button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Modal: Staff Permissions */}
+      {selectedStaffForPerms && (
+        <Modal
+          isOpen={!!selectedStaffForPerms}
+          onClose={() => setSelectedStaffForPerms(null)}
+          title={`Access Permissions: ${selectedStaffForPerms.name}`}
+          maxWidth="lg"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="flex items-center justify-between p-3 bg-blue-50/70 border border-blue-200 rounded-xl">
+              <div>
+                <span className="font-bold text-slate-900 block text-sm">
+                  {selectedStaffForPerms.name}
+                </span>
+                <span className="text-blue-700 font-semibold text-xs">
+                  {selectedStaffForPerms.role} • {selectedStaffForPerms.phone}
+                </span>
+              </div>
+              <Badge variant="primary" size="sm">
+                Role-Based Access Control
+              </Badge>
+            </div>
+
+            <p className="text-slate-600 text-xs">
+              Configure which administrative modules and functional tools this faculty or staff member can access within the RJ TECH Institute Management System.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              {[
+                { key: 'dashboard', label: 'Dashboard & KPI Summary', desc: 'View institute statistics, revenue, student count' },
+                { key: 'students', label: 'Student Directory', desc: 'Browse student database, search & view profiles' },
+                { key: 'admission', label: 'New Admission Entry', desc: 'Admit new students & generate roll numbers' },
+                { key: 'attendance', label: 'Attendance & QR Scanner', desc: 'Mark manual or live camera QR attendance' },
+                { key: 'fees', label: 'Fee Collection & Receipts', desc: 'Collect installment fees & issue printed receipts' },
+                { key: 'examinations', label: 'Exams & Assessment', desc: 'Schedule exams, set marks & syllabus' },
+                { key: 'marksheets', label: 'Marksheet Generation', desc: 'Grade entry, percentage calculation & grade cards' },
+                { key: 'certificates', label: 'Certificate Issuance', desc: 'Generate verifiable completion certificates' },
+                { key: 'studyMaterials', label: 'Study Materials Library', desc: 'Upload PDF notes, syllabus & video lectures' },
+                { key: 'idCards', label: 'Student ID Cards', desc: 'Generate & print laminated barcoded student ID cards' },
+                { key: 'reports', label: 'Financial & Academic Reports', desc: 'Audit fee collections, due reports & attendance' },
+                { key: 'settings', label: 'Institute Settings & Backup', desc: 'Modify logo, UPI ID, database backup & restore' },
+              ].map(({ key, label, desc }) => {
+                const isEnabled = !!(currentPerms as any)[key];
+                return (
+                  <label
+                    key={key}
+                    className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                      isEnabled
+                        ? 'bg-blue-50/40 border-blue-300 shadow-xs'
+                        : 'bg-slate-50/60 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isEnabled}
+                      onChange={(e) =>
+                        setCurrentPerms({
+                          ...currentPerms,
+                          [key]: e.target.checked,
+                        })
+                      }
+                      className="mt-0.5 w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                    />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-xs">
+                        {label}
+                      </span>
+                      <span className="text-[11px] text-slate-500 block leading-tight">
+                        {desc}
+                      </span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPerms({
+                      dashboard: true,
+                      students: true,
+                      admission: true,
+                      attendance: true,
+                      fees: true,
+                      examinations: true,
+                      marksheets: true,
+                      certificates: true,
+                      studyMaterials: true,
+                      idCards: true,
+                      settings: true,
+                      reports: true,
+                    })
+                  }
+                >
+                  Select All
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPerms({
+                      dashboard: true,
+                      students: true,
+                      admission: false,
+                      attendance: true,
+                      fees: false,
+                      examinations: true,
+                      marksheets: true,
+                      certificates: false,
+                      studyMaterials: true,
+                      idCards: false,
+                      settings: false,
+                      reports: false,
+                    })
+                  }
+                >
+                  Trainer Default
+                </Button>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedStaffForPerms(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  icon={Save}
+                  onClick={handleSavePermissions}
+                >
+                  Save Permissions
+                </Button>
+              </div>
+            </div>
+          </div>
         </Modal>
       )}
     </div>
